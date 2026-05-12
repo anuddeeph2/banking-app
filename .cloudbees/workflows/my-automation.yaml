@@ -21,8 +21,14 @@ jobs:
       - name: Build and Test Go App
         uses: docker://golang:1.20
         run: |
-          # Change directory to where go.mod is located
-          cd banking-app 
+          # 1. List files to see the actual structure (Debug)
+          ls -R
+          
+          # 2. Find where go.mod is and move there
+          MOD_DIR=$(find . -name "go.mod" -exec dirname {} \;)
+          cd "$MOD_DIR"
+          
+          # 3. Build and Test
           go mod download
           go build -v ./...
           go test -v ./...
