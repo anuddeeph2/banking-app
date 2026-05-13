@@ -18,17 +18,18 @@ jobs:
       - name: Checkout Code
         uses: https://github.com/cloudbees-io/checkout@v1
   
-      - name: Build and Test Go App
-        uses: docker://golang:1.20
+      - name: Build and Test Java App
+        uses: docker://maven:3.9-eclipse-temurin-17
         run: |
-          # 1. List files to see the actual structure (Debug)
-          ls -R
+          echo "Building Java/Spring Boot Banking App..."
           
-          # 2. Find where go.mod is and move there
-          MOD_DIR=$(find . -name "go.mod" -exec dirname {} \;)
-          cd "$MOD_DIR"
+          # Compile the project
+          mvn clean compile
           
-          # 3. Build and Test
-          go mod download
-          go build -v ./...
-          go test -v ./...
+          # Run tests
+          mvn test
+          
+          # Package the application
+          mvn package -DskipTests
+          
+          echo "✅ Build and tests completed successfully!"
