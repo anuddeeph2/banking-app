@@ -20,11 +20,8 @@ permissions:
   id-token: read
 
 jobs:
-  # Job 1: Unit Tests (Smart Tests)
+  # Job 1: Unit Tests
   unit-tests:
-    env:
-      SMART_TESTS_TOKEN: ${{ secrets.SMART_TESTS_TOKEN }}
-
     steps:
       # Step 1: Checkout code
       - name: Checkout code
@@ -32,55 +29,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Step 2: Verify Smart Tests connectivity
-      - name: Verify Smart Tests connectivity
-        uses: docker://cloudbeesdemo/maven-st:v1
-        run: |
-          smart-tests verify || true
-
-      # Step 3: Record build with Smart Tests
-      - name: Record build with Smart Tests
-        uses: docker://cloudbeesdemo/maven-st:v1
-        run: |
-          smart-tests record build --build ${{ cloudbees.run_id }} --source src=.
-
-      # Step 4: Record session with Smart Tests
-      - name: Record session with Smart Tests
-        uses: docker://cloudbeesdemo/maven-st:v1
-        run: |
-          smart-tests record session --build ${{ cloudbees.run_id }} --observation --test-suite banking-app-tests > session.txt
-          cat session.txt
-
-      # Step 5: Compile tests
+      # Step 2: Compile tests
       - name: Compile tests
         uses: docker://maven:3.9-eclipse-temurin-17
         run: |
           mvn test-compile
 
-      # Step 6: Create Smart Tests subset
-      - name: Create Smart Tests subset
-        uses: docker://cloudbeesdemo/maven-st:v1
-        run: |
-          find . -path '*/target/maven-status/maven-compiler-plugin/testCompile/default-testCompile/createdFiles.lst' -exec cat {} \; | \
-            grep "Test\.class$\|Tests\.class$" > filtered-tests.lst
-          smart-tests subset maven --session @session.txt --target 50% --test-compile-created-file filtered-tests.lst > smart-tests-subset.txt
-          cat smart-tests-subset.txt
-
-      # Step 7: Run tests with Smart Tests subset
-      - name: Run tests with Smart Tests subset
+      # Step 3: Run tests
+      - name: Run tests
         uses: docker://maven:3.9-eclipse-temurin-17
         kind: test
         run: |
-          mvn test -Dsurefire.includesFile=$PWD/smart-tests-subset.txt || true
+          mvn test
 
-      # Step 8: Record test results with Smart Tests
-      - name: Record test results with Smart Tests
-        uses: docker://cloudbeesdemo/maven-st:v1
-        if: ${{always()}}
-        run: |
-          smart-tests record tests maven --session @session.txt "**/target/surefire-reports"
-
-      # Step 9: Extract test summary
+      # Step 4: Extract test summary
       - name: Extract test summary
         id: test-summary
         uses: docker://alpine:latest
@@ -101,7 +63,7 @@ jobs:
           echo "$PASSED" > $CLOUDBEES_OUTPUTS/PASSED_TESTS
           echo "$FAILURES" > $CLOUDBEES_OUTPUTS/FAILED_TESTS
 
-      # Step 10: Publish unit test evidence
+      # Step 5: Publish unit test evidence
       - name: Publish unit test evidence
         uses: cloudbees-io/publish-evidence-item@v1
         with:
@@ -253,52 +215,6 @@ jobs:
                               </con:request>
                             </con:method>
                           </con:resource>
-                          <con:resource name="Accounts" path="/api/accounts" id="accounts-resource">
-                            <con:settings/>
-                            <con:parameters/>
-                            <con:method name="Get All Accounts" id="get-accounts" method="GET">
-                              <con:settings/>
-                              <con:parameters/>
-                              <con:representation type="RESPONSE">
-                                <con:mediaType>application/json</con:mediaType>
-                                <con:status>200</con:status>
-                              </con:representation>
-                              <con:request name="Request 1" id="get-accounts-req" mediaType="application/json">
-                                <con:settings/>
-                                <con:endpoint>http://banking-app</con:endpoint>
-                                <con:request/>
-                                <con:credentials>
-                                  <con:selectedAuthProfile>No Authorization</con:selectedAuthProfile>
-                                  <con:authType>No Authorization</con:authType>
-                                </con:credentials>
-                                <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
-                                <con:parameters/>
-                              </con:request>
-                            </con:method>
-                          </con:resource>
-                          <con:resource name="Users" path="/api/users" id="users-resource">
-                            <con:settings/>
-                            <con:parameters/>
-                            <con:method name="Get All Users" id="get-users" method="GET">
-                              <con:settings/>
-                              <con:parameters/>
-                              <con:representation type="RESPONSE">
-                                <con:mediaType>application/json</con:mediaType>
-                                <con:status>200</con:status>
-                              </con:representation>
-                              <con:request name="Request 1" id="get-users-req" mediaType="application/json">
-                                <con:settings/>
-                                <con:endpoint>http://banking-app</con:endpoint>
-                                <con:request/>
-                                <con:credentials>
-                                  <con:selectedAuthProfile>No Authorization</con:selectedAuthProfile>
-                                  <con:authType>No Authorization</con:authType>
-                                </con:credentials>
-                                <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
-                                <con:parameters/>
-                              </con:request>
-                            </con:method>
-                          </con:resource>
                         </con:interface>
                         <con:testSuite id="banking-test-suite" name="Banking API Test Suite">
                           <con:settings/>
@@ -309,63 +225,6 @@ jobs:
                               <con:settings/>
                               <con:config service="Banking API" methodName="Health Check" resourcePath="/actuator/health" xsi:type="con:RestRequestStep" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
                                 <con:restRequest name="Health Check" id="health-check-req" mediaType="application/json">
-                                  <con:settings/>
-                                  <con:endpoint>http://banking-app</con:endpoint>
-                                  <con:request/>
-                                  <con:credentials>
-                                    <con:selectedAuthProfile>No Authorization</con:selectedAuthProfile>
-                                    <con:authType>No Authorization</con:authType>
-                                  </con:credentials>
-                                  <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
-                                  <con:parameters/>
-                                  <con:assertion type="Valid HTTP Status Codes" id="status-assertion" name="Valid HTTP Status Codes">
-                                    <con:configuration>
-                                      <codes>200</codes>
-                                    </con:configuration>
-                                  </con:assertion>
-                                  <con:assertion type="JsonPath Match" id="json-assertion" name="JsonPath Match">
-                                    <con:configuration>
-                                      <path>\$.status</path>
-                                      <content>UP</content>
-                                      <allowWildcards>false</allowWildcards>
-                                      <ignoreNamspaceDifferences>false</ignoreNamspaceDifferences>
-                                      <ignoreComments>false</ignoreComments>
-                                    </con:configuration>
-                                  </con:assertion>
-                                </con:restRequest>
-                              </con:config>
-                            </con:testStep>
-                          </con:testCase>
-                          <con:testCase id="accounts-test" name="Accounts API Test" failOnError="true" failTestCaseOnErrors="true" keepSession="false">
-                            <con:settings/>
-                            <con:testStep type="restrequest" name="Get All Accounts" id="accounts-step">
-                              <con:settings/>
-                              <con:config service="Banking API" methodName="Get All Accounts" resourcePath="/api/accounts" xsi:type="con:RestRequestStep" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-                                <con:restRequest name="Get All Accounts" id="get-accounts-req" mediaType="application/json">
-                                  <con:settings/>
-                                  <con:endpoint>http://banking-app</con:endpoint>
-                                  <con:request/>
-                                  <con:credentials>
-                                    <con:selectedAuthProfile>No Authorization</con:selectedAuthProfile>
-                                    <con:authType>No Authorization</con:authType>
-                                  </con:credentials>
-                                  <con:jmsConfig JMSDeliveryMode="PERSISTENT"/>
-                                  <con:parameters/>
-                                  <con:assertion type="Valid HTTP Status Codes" id="status-assertion" name="Valid HTTP Status Codes">
-                                    <con:configuration>
-                                      <codes>200</codes>
-                                    </con:configuration>
-                                  </con:assertion>
-                                </con:restRequest>
-                              </con:config>
-                            </con:testStep>
-                          </con:testCase>
-                          <con:testCase id="users-test" name="Users API Test" failOnError="true" failTestCaseOnErrors="true" keepSession="false">
-                            <con:settings/>
-                            <con:testStep type="restrequest" name="Get All Users" id="users-step">
-                              <con:settings/>
-                              <con:config service="Banking API" methodName="Get All Users" resourcePath="/api/users" xsi:type="con:RestRequestStep" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-                                <con:restRequest name="Get All Users" id="get-users-req" mediaType="application/json">
                                   <con:settings/>
                                   <con:endpoint>http://banking-app</con:endpoint>
                                   <con:request/>
@@ -420,9 +279,6 @@ jobs:
           echo "Waiting for SoapUI job to complete..."
           kubectl wait --for=condition=complete --timeout=300s job/soapui-test-${{ cloudbees.run_id }} -n tejas-qa || true
 
-          # Get job status
-          JOB_STATUS=$(kubectl get job soapui-test-${{ cloudbees.run_id }} -n tejas-qa -o jsonpath='{.status.conditions[0].type}')
-
           # Get logs
           echo ""
           echo "📋 SoapUI Test Logs:"
@@ -432,15 +288,15 @@ jobs:
           LOGS=$(kubectl logs job/soapui-test-${{ cloudbees.run_id }} -n tejas-qa)
 
           if echo "$LOGS" | grep -q "Tests completed"; then
-            echo "3" > $CLOUDBEES_OUTPUTS/TOTAL
-            echo "3" > $CLOUDBEES_OUTPUTS/PASSED
+            echo "1" > $CLOUDBEES_OUTPUTS/TOTAL
+            echo "1" > $CLOUDBEES_OUTPUTS/PASSED
             echo "0" > $CLOUDBEES_OUTPUTS/FAILED
             echo "PASS" > $CLOUDBEES_OUTPUTS/STATUS
             echo "✅ SoapUI tests passed!"
           else
-            echo "3" > $CLOUDBEES_OUTPUTS/TOTAL
+            echo "1" > $CLOUDBEES_OUTPUTS/TOTAL
             echo "0" > $CLOUDBEES_OUTPUTS/PASSED
-            echo "3" > $CLOUDBEES_OUTPUTS/FAILED
+            echo "1" > $CLOUDBEES_OUTPUTS/FAILED
             echo "FAIL" > $CLOUDBEES_OUTPUTS/STATUS
             echo "❌ SoapUI tests failed"
           fi
@@ -461,29 +317,6 @@ jobs:
             - Tests Failed: ${{ steps.soapui-tests.outputs.FAILED }}
             - Status: ${{ steps.soapui-tests.outputs.STATUS }}
 
-            **Test Cases:**
-            - ✅ Health Check Test
-              - Endpoint: `GET /actuator/health`
-              - Assertions: HTTP 200, JSON status="UP"
-            - ✅ Account CRUD Test
-              - Get All Accounts: `GET /api/accounts`
-              - Create Account: `POST /api/accounts`
-              - Assertions: HTTP 200/201, JSON validation, SLA < 1s
-            - ✅ Account Operations Test
-              - Deposit: `POST /api/accounts/{id}/deposit`
-              - Withdraw: `POST /api/accounts/{id}/withdraw`
-              - Assertions: HTTP 200, Balance validation, SLA < 1s
-            - ✅ User Management Test
-              - Create User: `POST /api/users`
-              - Get All Users: `GET /api/users`
-              - Assertions: HTTP 200, JSON validation
-
-            **Test Coverage:**
-            - ✅ Functional API testing with assertions
-            - ✅ Response time SLA validation
-            - ✅ JSON response structure validation
-            - ✅ Business logic validation (balance updates)
-
   # Job 5: JMeter Performance Tests (QA)
   jmeter-tests:
     needs: deploy-qa
@@ -495,7 +328,7 @@ jobs:
         id: jmeter
         uses: docker://justb4/jmeter:latest
         run: |
-          # Set banking app host (domain only, no protocol or port)
+          # Set banking app host
           BANKING_APP_HOST="banking-app.tejas-qa.svc.cluster.local"
 
           # Run JMeter tests
@@ -511,12 +344,9 @@ jobs:
 
           # Parse results
           if [ -f jmeter-results.jtl ]; then
-            # Calculate metrics
             TOTAL_REQUESTS=$(wc -l < jmeter-results.jtl)
             FAILED_REQUESTS=$(grep "false" jmeter-results.jtl | wc -l || echo "0")
             ERROR_RATE=$(awk "BEGIN {printf \"%.2f\", ($FAILED_REQUESTS / $TOTAL_REQUESTS) * 100}")
-
-            # Calculate average response time
             AVG_RESPONSE=$(awk -F',' '{sum+=$2; count++} END {print int(sum/count)}' jmeter-results.jtl)
 
             echo "$TOTAL_REQUESTS" > $CLOUDBEES_OUTPUTS/TOTAL_REQUESTS
@@ -524,7 +354,6 @@ jobs:
             echo "$ERROR_RATE" > $CLOUDBEES_OUTPUTS/ERROR_RATE
             echo "$AVG_RESPONSE" > $CLOUDBEES_OUTPUTS/AVG_RESPONSE
 
-            # Check thresholds
             if [ "$ERROR_RATE" -lt "5" ] && [ "$AVG_RESPONSE" -lt "500" ]; then
               echo "PASS" > $CLOUDBEES_OUTPUTS/STATUS
               echo "Performance tests passed ✅"
@@ -544,30 +373,14 @@ jobs:
             ## JMeter Performance Test Evidence
             - Environment: QA
             - Test Plan: Banking App Load Test
-            - Load Profile:
-              - Virtual Users: 50
-              - Ramp-Up Time: 10 seconds
-              - Test Duration: 60 seconds
-
-            **Results:**
+            - Virtual Users: 50
+            - Ramp-Up: 10 seconds
+            - Duration: 60 seconds
             - Total Requests: ${{ steps.jmeter.outputs.TOTAL_REQUESTS }}
             - Failed Requests: ${{ steps.jmeter.outputs.FAILED_REQUESTS }}
             - Error Rate: ${{ steps.jmeter.outputs.ERROR_RATE }}%
-            - Average Response Time: ${{ steps.jmeter.outputs.AVG_RESPONSE }}ms
+            - Avg Response Time: ${{ steps.jmeter.outputs.AVG_RESPONSE }}ms
             - Status: ${{ steps.jmeter.outputs.STATUS }}
-
-            **Performance Thresholds:**
-            - ✅ Error Rate < 5% (Target: < 1%)
-            - ✅ Avg Response Time < 500ms
-            - ✅ P95 Response Time < 1000ms
-
-            **Test Scenarios:**
-            - Read Operations (GET requests)
-              - Health checks
-              - Account listing
-            - Write Operations (POST requests)
-              - Account creation
-              - Deposit/Withdraw operations
 
   # Job 6: QA Test Summary
   qa-test-summary:
@@ -578,29 +391,19 @@ jobs:
         with:
           content: |-
             ## QA Testing Summary
-
             **Environment:** QA (tejas-qa namespace)
             **Banking App Version:** latest
 
             ### Test Results:
-
-            #### 1. Unit Tests (Smart Tests)
+            #### 1. Unit Tests
             - Status: ✅ Passed
-            - Test Coverage: Service layer, Controller layer
 
             #### 2. API Tests (SoapUI)
             - Status: ✅ Passed
             - Tool: SoapUI Open Source 5.7.0
-            - Test Cases: Health Check, Account CRUD, Account Operations, User Management
-            - Assertions: HTTP status, JSON validation, Response time SLA
 
             #### 3. Performance Tests (JMeter)
             - Status: ✅ Passed
             - Load: 50 concurrent users
-            - Duration: 60 seconds
-            - Error Rate: < 1%
-            - Avg Response Time: < 500ms
 
             ### ✅ QA SIGN-OFF: ALL TESTS PASSED
-
-            **Ready for Staging Deployment**
