@@ -23,8 +23,6 @@ jobs:
   #============================================================================
 
   unit-tests:
-    env:
-      SMART_TESTS_TOKEN: ${{ secrets.SMART_TESTS_TOKEN }}
     steps:
       - name: Checkout code
         uses: cloudbees-io/checkout@v1
@@ -35,7 +33,7 @@ jobs:
         uses: docker://maven:3.9-eclipse-temurin-17
         kind: test
         run: |
-          mvn test || true
+          mvn test
 
       - name: Publish test evidence
         uses: cloudbees-io/publish-evidence-item@v1
